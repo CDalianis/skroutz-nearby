@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="referrer" content="origin" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Where to buy</title>
+  <link rel="stylesheet" href="vendor/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside>
+      <header>
+        <div class="brand">
+          <span class="mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <path fill="currentColor" d="M12 2.5c-3.6 0-6.5 2.8-6.5 6.3 0 4.7 6.5 12.7 6.5 12.7s6.5-8 6.5-12.7c0-3.5-2.9-6.3-6.5-6.3zm0 8.6a2.3 2.3 0 1 1 0-4.6 2.3 2.3 0 0 1 0 4.6z"/>
+            </svg>
+          </span>
+          <div>
+            <strong>Where to buy</strong>
+            <small>Skroutz stores near you</small>
+          </div>
+        </div>
+        <form id="search-form">
+          <input id="query" type="search" placeholder="Search a product, e.g. καφετιέρα" autocomplete="off" />
+          <button type="submit">Search</button>
+        </form>
+        <div id="location-bar">
+          <p id="location-label">Finding your location…</p>
+          <div class="location-actions">
+            <button type="button" id="locate-btn">Detect</button>
+            <button type="button" id="place-btn">Set place</button>
+          </div>
+        </div>
+        <form id="place-form" hidden>
+          <input id="place-input" type="text" placeholder="City, neighbourhood, or address" autocomplete="off" />
+          <button type="submit">Look up</button>
+          <p class="place-hint">Or click the map to drop your location.</p>
+          <ul id="place-matches" hidden></ul>
+        </form>
+      </header>
+      <div id="panel" role="region" aria-live="polite"></div>
+    </aside>
+    <main>
+      <div id="map"></div>
+      <div class="legend">
+        <span><i class="dot you"></i> You</span>
+        <span><i class="dot result"></i> Results</span>
+        <span><i class="dot shop"></i> Selected</span>
+      </div>
+      <p id="map-note" hidden></p>
+    </main>
+  </div>
+  <script src="vendor/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
