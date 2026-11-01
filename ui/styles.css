@@ -73,6 +73,10 @@ header {
   font-size: 12px;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 #search-form, #place-form {
   display: flex;
   gap: 8px;
