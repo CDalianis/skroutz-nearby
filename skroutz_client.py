@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from curl_cffi import requests
 
 BASE = "https://www.skroutz.gr"
+_PROFILES = ("safari260", "chrome133a", "chrome136")
 
 
 class SkroutzError(Exception):
@@ -22,8 +23,10 @@ class SkroutzError(Exception):
 class SkroutzClient:
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        self._profile_lock = threading.Lock()
+        self._profile_at = 0
         self._tls = threading.local()
-        self._http = requests.Session(impersonate="chrome")
+        self._http = requests.Session(impersonate=_PROFILES[0])
         self._cache: dict[str, dict] = {}
 
     def search(self, query: str, page_path: str | None = None) -> dict:
@@ -199,15 +202,24 @@ class SkroutzClient:
         merged = {"Accept-Language": "el-GR,el;q=0.9,en;q=0.8"}
         if headers:
             merged.update(headers)
-        try:
-            response = self._http.get(url, headers=merged, timeout=30, allow_redirects=True)
-        except Exception as exc:
-            raise SkroutzError("Could not reach Skroutz. Check your internet connection.") from exc
-        if response.status_code == 403 or "cf-mitigated" in response.headers:
-            raise SkroutzError("Skroutz blocked this request. Wait a moment and try again.")
-        if response.status_code >= 400:
-            raise SkroutzError(f"Skroutz returned an error ({response.status_code}).")
-        return response
+        last_status = None
+        for _ in range(len(_PROFILES)):
+            try:
+                response = self._http.get(url, headers=merged, timeout=30, allow_redirects=True)
+            except Exception as exc:
+                self._advance_profile()
+                last_status = exc
+                continue
+            if _challenged(response):
+                last_status = response.status_code
+                self._advance_profile()
+                continue
+            if response.status_code >= 400:
+                raise SkroutzError(f"Skroutz returned an error ({response.status_code}).")
+            return response
+        if isinstance(last_status, Exception):
+            raise SkroutzError("Could not reach Skroutz. Check your internet connection.") from last_status
+        raise SkroutzError("Skroutz blocked this request. Wait a moment and try again.")
 
     def _shop_prices(self, sku_id: int, product_url: str | None = None) -> dict[int, float]:
         url = f"{BASE}/s/{sku_id}"
@@ -330,29 +342,56 @@ class SkroutzClient:
         merged = {"Accept": "text/html", "Accept-Language": "el-GR,el;q=0.9,en;q=0.8"}
         if headers:
             merged.update(headers)
-        try:
-            response = self._session().get(
-                url,
-                headers=merged,
-                timeout=20,
-                allow_redirects=True,
-            )
-        except Exception:
-            return None
-        if response.status_code >= 400:
-            return None
-        return response
+        for _ in range(len(_PROFILES)):
+            try:
+                response = self._session().get(
+                    url,
+                    headers=merged,
+                    timeout=20,
+                    allow_redirects=True,
+                )
+            except Exception:
+                self._advance_profile()
+                continue
+            if _challenged(response):
+                self._advance_profile()
+                continue
+            if response.status_code >= 400:
+                return None
+            return response
+        return None
+
+    def _profile(self) -> str:
+        with self._profile_lock:
+            return _PROFILES[self._profile_at]
+
+    def _advance_profile(self) -> None:
+        with self._profile_lock:
+            self._profile_at = (self._profile_at + 1) % len(_PROFILES)
+            profile = _PROFILES[self._profile_at]
+        self._http = requests.Session(impersonate=profile)
+        self._tls.session = None
+        self._tls.profile = None
 
     def _session(self):
+        profile = self._profile()
         session = getattr(self._tls, "session", None)
-        if session is None:
-            session = requests.Session(impersonate="chrome")
+        if session is None or getattr(self._tls, "profile", None) != profile:
+            session = requests.Session(impersonate=profile)
             self._tls.session = session
+            self._tls.profile = profile
         return session
 
     def _read(self, url: str) -> str:
         response = self._fetch(url)
         return response.text if response is not None else ""
+
+
+def _challenged(response) -> bool:
+    if response.status_code in (403, 429) or "cf-mitigated" in response.headers:
+        return True
+    sample = response.content[:800]
+    return len(response.content) < 20000 and b"Just a moment" in sample
 
 
 def _product_page_url(sku_id: int, product_url: str) -> str | None:
