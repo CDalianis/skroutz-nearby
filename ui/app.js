@@ -339,8 +339,13 @@ function chipButton(option) {
 function renderFilters() {
   const filters = state.filters || { sort: [], groups: [] };
   if (!filters.sort.length && !filters.groups.length) return;
-  const wrap = document.createElement("div");
+  const wrap = document.createElement("details");
   wrap.className = "filters";
+  const summary = document.createElement("summary");
+  const filtersOn = filters.groups.some((group) => group.options.some((option) => option.selected));
+  summary.textContent = filtersOn ? "Filters · on" : "Filters";
+  if (filtersOn) wrap.open = true;
+  wrap.appendChild(summary);
 
   if (filters.sort.length) {
     const row = document.createElement("label");
@@ -468,6 +473,7 @@ function renderProducts() {
     more.addEventListener("click", () => runSearch(true));
     panel.appendChild(more);
   }
+  panel.scrollTop = 0;
 }
 
 function closeProduct(block) {
